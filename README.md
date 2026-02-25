@@ -1,77 +1,139 @@
-# GCP SSH + OpenClaw helper
+<p align="center">
+  <strong>GCP SSH + OpenClaw Helper</strong>
+</p>
+<p align="center">
+  <em>Run OpenClaw on a GCP VM — with your AI agent doing the heavy lifting.</em>
+</p>
 
-PowerShell scripts and notes to connect to a GCP VM via SSH and run [OpenClaw](https://docs.openclaw.ai) (gateway, dashboard, Telegram, etc.).
-
-## Full setup (VM → SSH → Tailscale → OpenClaw → client)
-
-**New to GCP or OpenClaw?** Follow **[GCP-SETUP.md](GCP-SETUP.md)** for the full path:
-
-1. **Create a VM** (gcloud or Console) and allow SSH (firewall).
-2. **Use this repo’s script** to connect: `.\gcp-ssh.cmd`.
-3. **On the VM:** Install Docker → Tailscale → OpenClaw gateway (install.sh).
-4. **Firewall** for OpenClaw port 18789 (and optional Tailscale Funnel).
-5. **On your client:** Open dashboard or OpenClaw app, paste gateway token, done.
-
-Then come back here for the script reference below.
+<p align="center">
+  <a href="https://github.com/Rikinshah787/Openclaw-in-GCP-Setup/stargazers"><img src="https://img.shields.io/github/stars/Rikinshah787/Openclaw-in-GCP-Setup?style=flat-square&label=Stars" alt="GitHub stars"></a>
+  <a href="https://docs.openclaw.ai"><img src="https://img.shields.io/badge/OpenClaw-gateway%20%7C%20dashboard%20%7C%20Telegram-8B5CF6?style=flat-square" alt="OpenClaw"></a>
+  <a href="https://cloud.google.com"><img src="https://img.shields.io/badge/GCP-Compute%20Engine-4285F4?style=flat-square&logo=google-cloud" alt="GCP"></a>
+</p>
 
 ---
 
-## Quick start (you already have a VM)
+## What this is
 
-1. **Install Google Cloud SDK** (one time)  
-   [Install guide](https://cloud.google.com/sdk/docs/install) or:
-   ```powershell
-   winget install Google.CloudSDK
-   ```
+You connect **Cursor** (or any agentic coder) to your GCP VM via SSH. You run **one connect command** and tell the agent to use this repo. The agent runs the scripts and commands; you only do the things that need a human: **OAuth in the browser**, **Tailscale auth link**, **pasting the gateway token** into the dashboard. Done.
 
-2. **Sign in**
-   ```powershell
-   gcloud auth login
-   ```
+No long runbooks. No “now run this, now run that.” One shortcut file, copy-paste blocks, clear split: **agent runs ↔ you do.**
 
-3. **Connect**
-   - List VMs and get the SSH command:
-     ```powershell
-   .\gcp-ssh.cmd
-   ```
-   - Or connect directly (use your instance name, zone, project):
-     ```powershell
-   .\gcp-ssh.cmd INSTANCE_NAME ZONE PROJECT_ID
-   ```
-     Example: `.\gcp-ssh.cmd my-vm us-central1-a my-project-id`
+---
 
-**If PowerShell blocks scripts**, use the `.cmd` launcher (no execution policy change needed):
+## Quick start
+
+### 1. You: connect to the VM
+
+**One-time:** sign in and connect (replace with your instance, zone, project):
+
 ```powershell
-.\gcp-ssh.cmd
+gcloud auth login
+cd F:\Openclaw
+.\gcp-ssh.cmd INSTANCE_NAME ZONE PROJECT_ID
 ```
 
-## What’s in this repo
+Example: `.\gcp-ssh.cmd open-claw us-central1-c my-gcp-project-id`
 
-| File | Purpose |
-|------|--------|
-| `gcp-ssh.ps1` | Main script: checks auth, lists VMs, runs `gcloud compute ssh` |
-| `gcp-ssh.cmd` | Launcher that runs the script with execution policy bypass |
-| **`GCP-SETUP.md`** | **Full guide: create VM → firewall → SSH → Tailscale → OpenClaw → client** |
-| `GCP-SSH-README.md` | Detailed runbook: API keys, OAuth, Tailscale, Telegram pairing, etc. |
-| `scripts/create-vm.sh` | Create GCP VM + firewall (SSH + 18789); run locally (WSL/Git Bash/Linux) |
-| `scripts/vm-setup.sh` | On-VM: install Docker, Tailscale, OpenClaw, fix permissions |
-| `scripts/openclaw-fix-permissions.sh` | Fix `.openclaw` ownership (1000:1000) to avoid EACCES |
-| `scripts/tailscale-funnel.sh` | Enable Tailscale Funnel for dashboard (127.0.0.1:18789) |
+Or with gcloud directly:
 
-Optional / reference:
+```powershell
+gcloud config set project YOUR_PROJECT_ID
+gcloud compute ssh YOUR_INSTANCE --zone=YOUR_ZONE
+```
 
-- `openclaw.env.template` – template for `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` on the VM.
-- `tailscale-funnel-openclaw.service` – systemd unit to keep Tailscale Funnel for the dashboard on after reboot.
-- `docker-compose-fixed.yml` – example compose with gateway + env_file for OpenClaw.
+### 2. You: tell your agent
+
+> **"I'm connected via SSH to the GCP VM. Use the README and AGENT-SHORTCUT.md in this repo — run the agent blocks; I'll do the manual steps (OAuth, Tailscale link, paste token)."**
+
+### 3. Agent runs ↔ You do
+
+| What you need | Agent runs (copy-paste on VM) | You do |
+|---------------|-------------------------------|--------|
+| **First-time setup** | Clone repo → `./scripts/vm-setup.sh` | Open **Tailscale auth link** in browser once |
+| **Permission errors** | `./scripts/openclaw-fix-permissions.sh` | — |
+| **HTTPS dashboard** | `./scripts/tailscale-funnel.sh` | — |
+| **Gateway token** | `sudo cat ~/.openclaw/openclaw.json \| grep -A1 '"token"'` | **Paste token** in dashboard/app |
+| **Restart after config** | `sudo docker restart openclaw-gateway` | — |
+| **Device pairing** | `devices approve REQUEST_ID` (see runbook) | — |
+| **Telegram pairing** | `pairing approve telegram CODE` (see runbook) | — |
+| **OAuth (OpenAI/Codex)** | Runs login command, prints URL | **Open URL** → sign in → **copy callback URL** → paste in terminal |
+| **API keys** | Opens `.env` with nano | **Paste keys**, save |
+
+Full copy-paste commands and placeholders (`OPENCLAW_USER`, paths, etc.) are in **[AGENT-SHORTCUT.md](AGENT-SHORTCUT.md)**.
+
+---
+
+## Agent: copy-paste blocks (on the VM)
+
+Replace `OPENCLAW_USER` with your VM user (e.g. `rikinshah787`).
+
+**Clone and run full setup:**
+
+```bash
+cd ~
+git clone https://github.com/Rikinshah787/Openclaw-in-GCP-Setup.git openclaw-setup
+cd openclaw-setup
+chmod +x scripts/*.sh
+./scripts/vm-setup.sh
+```
+
+**Fix permissions (if you see EACCES):**
+
+```bash
+./scripts/openclaw-fix-permissions.sh /home/OPENCLAW_USER/.openclaw
+```
+
+**Enable Tailscale Funnel (HTTPS dashboard):**
+
+```bash
+./scripts/tailscale-funnel.sh
+```
+
+**Get gateway token (for the user to paste in client):**
+
+```bash
+sudo cat /home/OPENCLAW_USER/.openclaw/openclaw.json | grep -A1 '"token"'
+```
+
+More blocks (restart gateway, approve device, approve Telegram) → **[AGENT-SHORTCUT.md](AGENT-SHORTCUT.md)**.
+
+---
+
+## Manual-only (you — agent can’t do these)
+
+- **Tailscale:** After `tailscale up`, open the **auth link** in your browser and approve the machine. Once per VM.
+- **OAuth:** Agent runs the login command; **you** open the URL in your browser, sign in, then **copy the callback URL** from the address bar and paste it into the SSH session.
+- **API keys:** Agent can open `.env`; **you** paste your keys and save.
+- **Client:** **You** open the dashboard (Funnel URL or `http://VM_IP:18789`) and **paste the gateway token** when asked.
+
+---
+
+## Repo layout
+
+| Resource | Description |
+|----------|-------------|
+| **[AGENT-SHORTCUT.md](AGENT-SHORTCUT.md)** | Full runbook: every copy-paste block + manual steps |
+| **[GCP-SETUP.md](GCP-SETUP.md)** | Full guide: create VM → firewall → SSH → Tailscale → OpenClaw → client |
+| **[DOCS.md](DOCS.md)** | GCP SSH helper reference (scripts, requirements, file list) |
+| **`gcp-ssh.cmd`** / **`gcp-ssh.ps1`** | Connect to VM from Windows (list VMs, SSH) |
+| **`scripts/*.sh`** | `create-vm.sh`, `vm-setup.sh`, `openclaw-fix-permissions.sh`, `tailscale-funnel.sh` |
+
+---
 
 ## Requirements
 
-- Windows (PowerShell)
-- [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) installed (adds `gcloud`)
-- A GCP project with a Compute Engine VM and SSH access
+- **Local:** Windows, [Google Cloud SDK](https://cloud.google.com/sdk/docs/install) (`gcloud`), this repo.
+- **VM:** GCP Compute Engine instance with SSH access (create via [GCP-SETUP.md](GCP-SETUP.md) or `scripts/create-vm.sh`).
 
-**Before pushing to GitHub:** Don’t commit `.env`, `auth-profiles.json`, or any file with API keys or tokens. `.gitignore` is set up to exclude those.
+Don’t commit `.env`, `auth-profiles.json`, or any file with API keys or tokens (`.gitignore` is set).
 
-## License
+---
 
-Use and adapt as you like. No warranty.
+<p align="center">
+  <strong>If this saved you time, give it a ⭐</strong>
+</p>
+
+<p align="center">
+  <sub>Use and adapt as you like. No warranty.</sub>
+</p>
