@@ -1,0 +1,12 @@
+[Unit]
+Description=Tailscale Funnel for OpenClaw dashboard
+After=tailscaled.service docker.service
+Wants=tailscaled.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/tailscale funnel --bg --yes http://127.0.0.1:18789
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

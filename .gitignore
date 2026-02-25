@@ -1,0 +1,19 @@
+# Secrets and local config — never commit
+.env
+.env.local
+*.pem
+*credentials*
+auth-profiles.json
+openclaw.json
+
+# Optional: ignore if you keep local copies with real values
+# openclaw.env.template
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Logs
+*.log
